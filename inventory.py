@@ -3,13 +3,14 @@ import uuid
 from botocore.exceptions import ClientError
 
 
-def create_event(table, event_id, name, capacity):
+def create_event(table, event_id, name, capacity, price_cents=1000):
     table.put_item(
         Item={
             "event_id": event_id,
             "name": name,
             "capacity": capacity,
             "tickets_left": capacity,
+            "price_cents": price_cents,
         },
         ConditionExpression="attribute_not_exists(event_id)",
     )
@@ -81,3 +82,21 @@ def _change_status(orders_table, order_id, new_status):
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             return False
         raise
+
+
+def record_webhook_event(webhooks_table, event_id):
+    """True the first time we see this Stripe event ID, False for repeats."""
+    try:
+        webhooks_table.put_item(
+            Item={"event_id": event_id},
+            ConditionExpression="attribute_not_exists(event_id)",
+        )
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+
+
+def forget_webhook_event(webhooks_table, event_id):
+    webhooks_table.delete_item(Key={"event_id": event_id})
