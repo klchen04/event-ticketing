@@ -100,3 +100,45 @@ def record_webhook_event(webhooks_table, event_id):
 
 def forget_webhook_event(webhooks_table, event_id):
     webhooks_table.delete_item(Key={"event_id": event_id})
+
+
+def ticket_ids_for(order_id, quantity):
+    return [f"{order_id}-{n}" for n in range(1, int(quantity) + 1)]
+
+
+def issue_tickets(tickets_table, order_id, event_id, quantity):
+    """One ticket per seat. Safe to call repeatedly, since IDs come from the order ID."""
+    ids = ticket_ids_for(order_id, quantity)
+    for ticket_id in ids:
+        try:
+            tickets_table.put_item(
+                Item={
+                    "ticket_id": ticket_id,
+                    "order_id": order_id,
+                    "event_id": event_id,
+                    "status": "valid",
+                },
+                ConditionExpression="attribute_not_exists(ticket_id)",
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+    return ids
+
+
+def check_in(tickets_table, ticket_id):
+    """'ok' the first time, 'already_used' after that, 'not_found' for unknown tickets."""
+    try:
+        tickets_table.update_item(
+            Key={"ticket_id": ticket_id},
+            UpdateExpression="SET #s = :used",
+            ConditionExpression="#s = :valid",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":used": "used", ":valid": "valid"},
+        )
+        return "ok"
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            raise
+    item = tickets_table.get_item(Key={"ticket_id": ticket_id}).get("Item")
+    return "not_found" if item is None else "already_used"

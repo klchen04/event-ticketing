@@ -11,3 +11,8 @@ def get_tables():
         dynamodb.Table("Orders"),
         dynamodb.Table("ProcessedWebhooks"),
     )
+
+
+def get_tickets_table():
+    region = os.environ.get("AWS_REGION", "us-east-2")
+    return boto3.resource("dynamodb", region_name=region).Table("Tickets")

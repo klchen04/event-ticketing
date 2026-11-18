@@ -7,6 +7,7 @@ TABLES = {
     "Events": "event_id",
     "Orders": "order_id",
     "ProcessedWebhooks": "event_id",
+    "Tickets": "ticket_id",
 }
 
 for name, key in TABLES.items():

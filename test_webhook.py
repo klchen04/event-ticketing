@@ -27,6 +27,7 @@ def tables(monkeypatch):
             ("Events", "event_id"),
             ("Orders", "order_id"),
             ("ProcessedWebhooks", "event_id"),
+            ("Tickets", "ticket_id"),
         ]:
             dynamodb.create_table(
                 TableName=name,
@@ -122,3 +123,18 @@ def test_bad_signature_is_rejected(tables):
     response = client.post("/webhook", content=payload, headers=headers)
 
     assert response.status_code == 400
+
+
+def test_paid_webhook_issues_tickets_once(tables):
+    events, orders, _ = tables
+    create_event(events, "concert", "Test Concert", capacity=3)
+    order_id = create_order(events, orders, "concert", 2)
+    client = TestClient(main.app)
+    tickets = boto3.resource("dynamodb", region_name="us-east-2").Table("Tickets")
+
+    # two different events for the same order must still give exactly 2 tickets
+    for event_id in ("evt_1", "evt_2"):
+        payload, headers = signed_request(event_id, "checkout.session.completed", order_id)
+        client.post("/webhook", content=payload, headers=headers)
+
+    assert len(tickets.scan()["Items"]) == 2
