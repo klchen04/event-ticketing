@@ -2,7 +2,9 @@
 
 A backend for selling event tickets with Stripe Checkout (test mode), DynamoDB, and QR code tickets. It never oversells, and it handles repeated Stripe webhooks safely.
 
-**Demo video:** coming soon
+**Demo video:** [Watch the 3-minute demo](https://www.youtube.com/watch?v=froUV6KnHh0)
+- [Overselling is rejected](https://youtu.be/froUV6KnHh0?t=62)
+- [Duplicate webhook ignored](https://youtu.be/froUV6KnHh0?t=92)
 
 ## What it does
 
