@@ -2,9 +2,9 @@
 
 A backend for selling event tickets with Stripe Checkout (test mode), DynamoDB, and QR code tickets. It never oversells, and it handles repeated Stripe webhooks safely.
 
-**Demo video:** [Watch the 3-minute demo](https://youtu.be/froUV6KnHh0)
+**Demo video:** [Watch the 3-minute demo](https://www.youtube.com/watch?v=36bII79O8yU)
 
-**Jump to:** [Overselling is rejected](https://youtu.be/froUV6KnHh0?t=62) | [Duplicate webhook ignored](https://youtu.be/froUV6KnHh0?t=92)
+**Jump to:** [Overselling is rejected](https://youtu.be/36bII79O8yU?t=62) | [Concurrency rejection](https://youtu.be/36bII79O8yU?t=83) | [Duplicate webhook ignored](https://youtu.be/36bII79O8yU?t=111)
 
 ## What it does
 
@@ -42,6 +42,10 @@ sequenceDiagram
 Each event is a row in DynamoDB with a `tickets_left` counter. Buying tickets runs one conditional update: subtract the quantity only if `tickets_left >= quantity`. DynamoDB checks and subtracts in a single step, so two buyers going for the last ticket cannot both succeed. The loser gets a 409 response.
 
 Tickets are held from the moment checkout starts. If the customer abandons checkout, Stripe's `checkout.session.expired` webhook returns the held tickets to inventory.
+
+### Proof under concurrency
+
+`concurrency_demo.py` races 20 simultaneous buyers for 5 tickets against the real DynamoDB table. A naive read-then-write version accepted all 20 purchases, and the database still showed tickets left, because every buyer read the same count before anyone wrote. The conditional write accepted exactly 5 and left 0 each time I ran it. This is a demo script, not part of the automated tests.
 
 ## How repeat webhooks are handled
 
@@ -88,7 +92,7 @@ pytest
 - Stripe test mode only.
 - The check-in endpoint has no authentication. A real system would require staff login.
 - Reserving tickets and saving the order are two separate writes, so a crash between them could lose the reserved tickets. A DynamoDB transaction would make this atomic.
-- The mocked database does not simulate real contention.
+- The automated tests use a mocked database, which does not simulate real contention. `concurrency_demo.py` covers that against real DynamoDB, but it is not part of CI.
 - The expired-checkout flow is tested with simulated webhook events, not by waiting for a real session to expire.
 - No email delivery of tickets.
 
